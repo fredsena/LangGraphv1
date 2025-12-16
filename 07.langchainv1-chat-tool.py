@@ -10,21 +10,45 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_core.tools import tool
 from langchain.agents import create_agent
 
+from langchain.agents.middleware import PIIMiddleware, SummarizationMiddleware
+
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver, InMemorySaver
 from typing import Literal
 from langchain.tools import tool
 
+from typing_extensions import NotRequired
+
+from langchain.tools.tool_node import ToolCallRequest
+from langchain.messages import ToolMessage
+from langgraph.types import Command
+from typing import Callable
+
+from langchain.agents.middleware import wrap_tool_call
+
 import os
+
+from langchain.agents.middleware import (
+    AgentMiddleware,
+    AgentState,
+    ModelRequest,
+    ModelResponse,
+)
+from langgraph.runtime import Runtime
+from typing import Any, Callable
 
 # Rich library imports for beautiful terminal output
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
 from rich.status import Status
-from rich.prompt import Prompt
 from rich.syntax import Syntax
 from rich.theme import Theme
+
+# prompt_toolkit for cross-platform history support (arrow up/down)
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.formatted_text import HTML
 
 # Initialize Rich console with custom theme
 custom_theme = Theme({
@@ -223,6 +247,60 @@ def write_file(
     except Exception as e:
         raise ValueError(f"Error writing file: {str(e)}")
 
+@tool(
+    "list_files",
+    parse_docstring=True,
+    description="List all files and folders in a specified directory."
+)
+def list_files(folder_path: str, show_hidden: bool = False) -> str:
+    """List all files and folders in a specified directory.
+    
+    Args:
+        folder_path (str): The path to the folder to list.
+                          Can be relative or absolute path.
+                          Works on both Linux and Windows.
+        show_hidden (bool): Whether to show hidden files (default: False).
+                           On Linux, hidden files start with a dot.
+    
+    Returns:
+        str: A formatted string listing all files and folders with their types.
+    
+    Raises:
+        FileNotFoundError: If the folder does not exist.
+        NotADirectoryError: If the path is not a directory.
+    """
+    print("📁 Invoking list_files tool")
+    
+    # Convert to pathlib Path for cross-platform compatibility
+    path = pathlib.Path(folder_path).expanduser().resolve()
+    
+    # Validate the path exists and is a directory
+    if not path.exists():
+        raise FileNotFoundError(f"Folder does not exist: {folder_path}")
+    
+    if not path.is_dir():
+        raise NotADirectoryError(f"Path is not a directory: {folder_path}")
+    
+    # List files and directories
+    items = []
+    try:
+        for item in sorted(path.iterdir()):
+            # Skip hidden files if show_hidden is False
+            if not show_hidden and item.name.startswith('.'):
+                continue
+            
+            # Determine if it's a file or directory
+            item_type = "📁 [DIR]" if item.is_dir() else "📄 [FILE]"
+            items.append(f"{item_type}  {item.name}")
+    
+    except PermissionError:
+        raise PermissionError(f"Permission denied accessing folder: {folder_path}")
+    
+    if not items:
+        return f"Folder is empty: {folder_path}"
+    
+    result = f"Contents of {path}:\n\n" + "\n".join(items)
+    return result
 
 # =============================================================================
 # RICH HELPER FUNCTIONS
@@ -265,14 +343,57 @@ def print_code_block(code: str, language: str = "python"):
     syntax = Syntax(code, language, theme="monokai", line_numbers=True)
     console.print(syntax)
 
+class LoggingMiddleware(AgentMiddleware):
+    def before_agent(self, state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
+        print(f"About to call model with {len(state['messages'])} messages")        
+        return None
+
+    def after_agent(self, state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
+        print(f"Model returned: {state['messages'][-1].content}")
+        return None
+
+# class ToolMonitoringMiddleware(AgentMiddleware):
+#     def wrap_tool_call(
+#         self,
+#         request: ToolCallRequest,
+#         handler: Callable[[ToolCallRequest], ToolMessage | Command],
+#     ) -> ToolMessage | Command:
+#         print(f"Executing tool: {request.tool_call['name']}")
+#         print(f"Arguments: {request.tool_call['args']}")
+#         try:
+#             result = handler(request)
+#             print(f"Tool completed successfully")
+#             return result
+#         except Exception as e:
+#             print(f"Tool failed: {e}")
+#             raise
+
+# class CustomState(AgentState):
+#     model_call_count: NotRequired[int]
+#     user_id: NotRequired[str]
+
+
+# class CallCounterMiddleware(AgentMiddleware[CustomState]):
+#     state_schema = CustomState
+
+#     def before_model(self, state: CustomState, runtime) -> dict[str, Any] | None:
+#         count = state.get("model_call_count", 0)
+#         if count > 1:
+#             print(f"user_id: {state['user_id']}")        
+#             #return {"jump_to": "end"}
+#         return None
+
+#     def after_model(self, state: CustomState, runtime) -> dict[str, Any] | None:
+#         return {"model_call_count": state.get("model_call_count", 0) + 1}
+
 # =============================================================================
 # LANGCHAIN SETUP
 # =============================================================================
 
 llm = ChatOpenAI(
     model="qwen/qwen3-4b-2507", 
-    #model="llama-3.2-3b-instruct",
-    #model="qwen3-4b-instruct-2507-polaris-alpha-distill",
+    #model="openai/gpt-oss-20b",
+    #model="qwen/qwen3-30b-a3b-2507",
     base_url="http://127.0.0.1:1234/v1", 
     temperature=0.0, 
     api_key="11111111111111")
@@ -281,7 +402,15 @@ agent = create_agent(
     system_prompt="You are a helpful assistant.",
     model=llm,
     checkpointer=InMemorySaver(),
-    tools=[find_file,read_file,write_file],
+    tools=[find_file,read_file,write_file,list_files],
+    # middleware=[LoggingMiddleware()    
+    #     # PIIMiddleware(
+    #     #     "email", 
+    #     #     strategy="redact", 
+    #     #     #apply_to_input = True, 
+    #     #     #apply_to_output = True
+    #     #     ),
+    # ],    
 )
 
 # =============================================================================
@@ -305,11 +434,15 @@ console.print(Panel.fit(
 ))
 console.print()
 
+# Initialize prompt session with persistent history file
+history_file = pathlib.Path.home() / ".chat_history"
+session = PromptSession(history=FileHistory(str(history_file)))
+
 # Chat loop
 while True:
-    # Get user input with Rich prompt
+    # Get user input with prompt_toolkit (supports arrow up/down history)
     try:
-        user_input = Prompt.ask("\n[bold green]You[/bold green]").strip()
+        user_input = session.prompt(HTML('\n<ansigreen><b>You:</b></ansigreen> ')).strip()
     except (KeyboardInterrupt, EOFError):
         console.print("\n[yellow]👋 Goodbye![/yellow]")
         break
@@ -337,6 +470,7 @@ while True:
     # Get and display the AI's response with typing effect
     ai_response = result["messages"][-1].content
     console.print("\n[bold cyan]🤖 Bot:[/bold cyan] ", end="")
-    type_print(ai_response, style="white", speed=0.005)
+    #type_print(ai_response, style="white", speed=0)
+    render_markdown_response(ai_response, speed=0)
 
 console.print("\n")

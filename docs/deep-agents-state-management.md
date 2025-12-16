@@ -25,7 +25,7 @@ The Deep Agents pattern extends LangGraph's base `AgentState` with two key capab
 
 ### State Schema
 
-From [`utils/state.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/utils/state.py):
+From [`utils/state.py`](../utils/state.py):
 
 ```python
 class DeepAgentState(AgentState):
@@ -112,7 +112,7 @@ The `Annotated` wrapper tells LangGraph to use `file_reducer` when merging updat
 
 ### Is the Reducer Being Used?
 
-In [`09.deep-agents-todo.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/09.deep-agents-todo.py#L106):
+In [`09.deep-agents-todo.py`](../09.deep-agents-todo.py):
 
 ```python
 agent = create_agent(
@@ -199,7 +199,7 @@ class DeepAgentState(AgentState):
 
 ### The `Todo` Class
 
-From [`utils/state.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/utils/state.py#L15-L24):
+From [`utils/state.py`](../utils/state.py):
 
 ```python
 class Todo(TypedDict):
@@ -229,7 +229,7 @@ The TODO system enables **task planning and progress tracking** for complex mult
 
 ### TODO Tools
 
-From [`utils/todo_tools.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/utils/todo_tools.py):
+From [`utils/todo_tools.py`](../utils/todo_tools.py):
 
 #### Tool 1: `write_todos`
 
@@ -286,7 +286,7 @@ Current TODO List:
 
 ### Agent Workflow with TODOs
 
-From [`utils/prompts.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/utils/prompts.py#L36-L45):
+From [`utils/prompts.py`](../utils/prompts.py):
 
 ```
 1. User makes complex request
@@ -301,7 +301,7 @@ From [`utils/prompts.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/utils/
 
 ### Real-World Example
 
-From [`09.deep-agents-todo.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/09.deep-agents-todo.py#L114-L124):
+From [`09.deep-agents-todo.py`](../09.deep-agents-todo.py):
 
 ```python
 result = await agent.ainvoke(
@@ -354,7 +354,7 @@ write_todos([
 
 ### Design Principles
 
-From [`utils/prompts.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/utils/prompts.py#L7-L34):
+From [`utils/prompts.py`](../utils/prompts.py):
 
 - ✅ **Only one `in_progress` task at a time** (focused execution)
 - ✅ **Mark completed immediately** (real-time tracking)
@@ -381,7 +381,7 @@ class DeepAgentState(AgentState):
 
 ### The Removal Process
 
-From [`utils/todo_tools.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/utils/todo_tools.py#L32-L38):
+From [`utils/todo_tools.py`](../utils/todo_tools.py):
 
 ```python
 return Command(
@@ -448,7 +448,7 @@ Two debugging scripts are available:
 
 #### 1. Simple Debug Script (Recommended)
 
-[`09-simple-debug-todos.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/09-simple-debug-todos.py)
+[`09-simple-debug-todos.py`](../09-simple-debug-todos.py)
 
 A clean, easy-to-read script showing:
 - Each step the agent takes
@@ -458,13 +458,14 @@ A clean, easy-to-read script showing:
 
 **Run it:**
 ```bash
-cd /home/fredsena/FredCodes/GIT/LangGraphv1
+# Navigate to the project root directory
+# cd <project-root>
 python 09-simple-debug-todos.py
 ```
 
 #### 2. Comprehensive Debug Script
 
-[`09-debug-todos.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/09-debug-todos.py)
+[`09-debug-todos.py`](../09-debug-todos.py)
 
 Demonstrates three debugging methods:
 - **Method 1**: Event streaming with detailed tracking
@@ -618,12 +619,12 @@ USER REQUEST: What time is it in London? Tell me about MCP...
 
 ### Source Files
 
-- [`utils/state.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/utils/state.py) - State definitions
-- [`utils/todo_tools.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/utils/todo_tools.py) - TODO management tools
-- [`utils/prompts.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/utils/prompts.py) - System prompts and instructions
-- [`09.deep-agents-todo.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/09.deep-agents-todo.py) - Main agent implementation
-- [`09-simple-debug-todos.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/09-simple-debug-todos.py) - Simple debugging script
-- [`09-debug-todos.py`](file:///home/fredsena/FredCodes/GIT/LangGraphv1/09-debug-todos.py) - Comprehensive debugging script
+- [`utils/state.py`](../utils/state.py) - State definitions
+- [`utils/todo_tools.py`](../utils/todo_tools.py) - TODO management tools
+- [`utils/prompts.py`](../utils/prompts.py) - System prompts and instructions
+- [`09.deep-agents-todo.py`](../09.deep-agents-todo.py) - Main agent implementation
+- [`09-simple-debug-todos.py`](../09-simple-debug-todos.py) - Simple debugging script
+- [`09-debug-todos.py`](../09-debug-todos.py) - Comprehensive debugging script
 
 ---
 

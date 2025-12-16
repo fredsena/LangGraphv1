@@ -14,20 +14,83 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 import asyncio
 
 from langgraph.checkpoint.memory import MemorySaver, InMemorySaver
+from langchain_core.tools import tool
 
 async def main():
+
+    @tool(
+        "find_file",
+        parse_docstring=True,
+        description=(
+            "Find files by name or pattern across a directory tree. "
+            "Works on both Linux and Windows. Returns the full paths of matching files."
+        ),
+    )
+    def find_file(
+        filename: str, 
+        search_dir: str = ".",
+        recursive: bool = True
+    ) -> str:
+        """Find files by name or pattern in a directory.
+
+        Args:
+            filename (str): The file name or pattern to search for (e.g., "*.txt", "config.json").
+            search_dir (str): The directory to search in. Defaults to current directory.
+            recursive (bool): Whether to search subdirectories. Defaults to True.
+
+        Returns:
+            str: Comma-separated list of full paths to matching files, or "No files found" if empty.
+
+        Raises:
+            ValueError: If the search directory doesn't exist.
+        """
+        #console.print(f"🔍 Searching for '[cyan]{filename}[/cyan]' in '[blue]{search_dir}[/blue]'", style="info")
+        
+        # Convert to pathlib.Path for cross-platform compatibility
+        search_path = pathlib.Path(search_dir).expanduser().resolve()
+        
+        if not search_path.exists():
+            raise ValueError(f"Directory does not exist: {search_path}")
+        
+        if not search_path.is_dir():
+            raise ValueError(f"Path is not a directory: {search_path}")
+        
+        # Search for matching files
+        try:
+            if recursive:
+                # Recursive search using glob
+                matches = list(search_path.glob(f"**/{filename}"))
+            else:
+                # Non-recursive search
+                matches = list(search_path.glob(filename))
+            
+            if matches:
+                # Convert to absolute paths and return as comma-separated string
+                file_paths = [str(m.resolve()) for m in matches]
+                return ", ".join(file_paths)
+            else:
+                return f"No files found matching '{filename}' in {search_path}"
+        
+        except Exception as e:
+            return f"Error during search: {str(e)}"
+
+
     # Connect to MCP servers
     mcp_client = MultiServerMCPClient(
         {
-            "time": {
-                "transport": "stdio",
-                "command": "npx",
-                "args": ["-y", "@theo.foobar/mcp-time"],
-            },
+            # "time": {
+            #     "transport": "stdio",
+            #     "command": "npx",
+            #     "args": ["-y", "@theo.foobar/mcp-time"],
+            # },
             "msdocs": {
                 "transport": "streamable_http",            
                 "url": "https://learn.microsoft.com/api/mcp",
-            }
+            },
+            "langchaindocs": {
+                "transport": "streamable_http",            
+                "url": "https://docs.langchain.com/mcp",
+            },
         },
     )
 
@@ -47,7 +110,7 @@ async def main():
     agent = create_agent(
         system_prompt="You are a helpful assistant. Use only tools to answer the user.",
         model=llm,
-        tools=mcp_tools,  # Add MCP tools to the agent
+        tools=[*mcp_tools, find_file],  # Unpack MCP tools and add find_file
         checkpointer=InMemorySaver(),
     )
 
